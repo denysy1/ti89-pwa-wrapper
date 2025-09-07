@@ -14,38 +14,71 @@
   <style>html,body{height:100%;margin:0;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-family:-apple-system,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px}</style>
 </head>
 <body>
-  <div id="loading">
-    <div style="text-align:center;">
-      <div style="font-size:48px;margin-bottom:20px;">89</div>
-      <div>Loading TI-89 Simulator...</div>
-      <div style="font-size:12px;margin-top:20px;opacity:0.7;">Tap here if not redirected</div>
+  <!-- Install Instructions (shown in regular browser) -->
+  <div id="installScreen" style="display:none;">
+    <div style="text-align:center;max-width:350px;">
+      <div style="font-size:72px;margin-bottom:20px;font-weight:bold;">89</div>
+      <div style="font-size:24px;margin-bottom:30px;">TI-89 Calculator</div>
+
+      <div style="background:#1a1a1a;border-radius:12px;padding:25px;margin-bottom:25px;">
+        <div style="font-size:18px;margin-bottom:15px;">📱 Install as App</div>
+        <div style="font-size:14px;line-height:1.6;margin-bottom:20px;opacity:0.9;">
+          Tap the Share button below, then select "Add to Home Screen" to install this as a native app.
+        </div>
+        <div style="font-size:40px;margin-bottom:10px;">⬇️</div>
+        <div style="background:#007AFF;color:#fff;padding:8px 16px;border-radius:20px;display:inline-block;font-size:14px;">
+          📤 Share
+        </div>
+      </div>
+
+      <button onclick="window.location.href='https://ti89-simulator.com/'" style="
+        background:#333;
+        color:#fff;
+        border:2px solid #666;
+        padding:12px 24px;
+        font-size:14px;
+        border-radius:8px;
+        cursor:pointer;
+        font-family:inherit;
+        opacity:0.7;
+      ">Or open simulator directly</button>
     </div>
   </div>
+
+  <!-- Loading Screen (shown in PWA mode) -->
+  <div id="loadingScreen" style="display:none;">
+    <div style="text-align:center;">
+      <div style="font-size:72px;margin-bottom:20px;font-weight:bold;">89</div>
+      <div style="font-size:18px;opacity:0.8;">Loading TI-89 Simulator...</div>
+    </div>
+  </div>
+
   <noscript>This app requires JavaScript to open the TI-89 simulator.</noscript>
+
   <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js");
     }
 
-    // Check if we're in standalone mode (iOS)
+    // Check if we're in standalone mode (PWA)
     const isStandalone = window.navigator.standalone === true ||
                         window.matchMedia('(display-mode: standalone)').matches;
 
-    // Add click handler to entire body for manual redirect
-    document.body.addEventListener('click', () => {
-      window.open("https://ti89-simulator.com/", "_blank");
-    });
+    const installScreen = document.getElementById('installScreen');
+    const loadingScreen = document.getElementById('loadingScreen');
 
-    // Delayed redirect to help iOS maintain standalone mode
-    setTimeout(() => {
-      if (isStandalone) {
-        // In standalone mode, open in new window to prevent losing app context
-        window.open("https://ti89-simulator.com/", "_blank");
-      } else {
-        // Not standalone, just redirect normally
-        location.replace("https://ti89-simulator.com/");
-      }
-    }, 1000);
+    if (isStandalone) {
+      // PWA mode: Show loading screen and auto-redirect
+      loadingScreen.style.display = 'block';
+
+      setTimeout(() => {
+        window.location.href = "https://ti89-simulator.com/";
+      }, 1500);
+
+    } else {
+      // Browser mode: Show install instructions
+      installScreen.style.display = 'block';
+    }
   </script>
 </body>
 </html>
