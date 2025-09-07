@@ -14,10 +14,38 @@
   <style>html,body{height:100%;margin:0;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-family:-apple-system,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px}</style>
 </head>
 <body>
+  <div id="loading">
+    <div style="text-align:center;">
+      <div style="font-size:48px;margin-bottom:20px;">89</div>
+      <div>Loading TI-89 Simulator...</div>
+      <div style="font-size:12px;margin-top:20px;opacity:0.7;">Tap here if not redirected</div>
+    </div>
+  </div>
   <noscript>This app requires JavaScript to open the TI-89 simulator.</noscript>
   <script>
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
-    location.replace("https://ti89-simulator.com/");
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js");
+    }
+
+    // Check if we're in standalone mode (iOS)
+    const isStandalone = window.navigator.standalone === true ||
+                        window.matchMedia('(display-mode: standalone)').matches;
+
+    // Add click handler to entire body for manual redirect
+    document.body.addEventListener('click', () => {
+      window.open("https://ti89-simulator.com/", "_blank");
+    });
+
+    // Delayed redirect to help iOS maintain standalone mode
+    setTimeout(() => {
+      if (isStandalone) {
+        // In standalone mode, open in new window to prevent losing app context
+        window.open("https://ti89-simulator.com/", "_blank");
+      } else {
+        // Not standalone, just redirect normally
+        location.replace("https://ti89-simulator.com/");
+      }
+    }, 1000);
   </script>
 </body>
 </html>
