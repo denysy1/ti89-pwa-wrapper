@@ -159,6 +159,10 @@
         allowfullscreen>
     </iframe>
 
+    <!-- State Management Scripts -->
+    <script src="./js/storage-fallback.js"></script>
+    <script src="./js/state-manager.js"></script>
+
     <script>
         // Register service worker
         if ('serviceWorker' in navigator) {
@@ -168,6 +172,7 @@
         let loadTimeout;
         let retryCount = 0;
         const maxRetries = 3;
+        let stateManager = null;
 
         function loadCalculator() {
             const iframe = document.getElementById('calculatorFrame');
@@ -189,6 +194,9 @@
             iframe.onload = function() {
                 clearTimeout(loadTimeout);
                 loadingScreen.classList.add('hide');
+
+                // Initialize state management
+                initializeStateManagement(iframe);
 
                 // Add some delay for smoother transition
                 setTimeout(() => {
@@ -270,8 +278,169 @@
             lastTouchEnd = now;
         }, false);
 
-        // Start loading the calculator
-        document.addEventListener('DOMContentLoaded', loadCalculator);
+        /**
+         * Initialize state management for the calculator
+         */
+        async function initializeStateManagement(iframe) {
+            try {
+                // Create state manager if not exists
+                if (!stateManager) {
+                    stateManager = new TI89StateManager();
+                }
+
+                // Set the iframe reference
+                stateManager.setIframe(iframe);
+
+                // Wait a moment for iframe to fully load
+                setTimeout(async () => {
+                    try {
+                        // Try to inject the bridge script into the iframe
+                        await injectBridgeScript(iframe);
+
+                        // Load any saved state
+                        const savedState = await stateManager.loadState();
+                        if (savedState) {
+                            console.log('Found saved calculator state, attempting to restore...');
+                            // Wait a bit more for the calculator to initialize
+                            setTimeout(() => {
+                                stateManager.sendStateToCalculator(savedState);
+                            }, 3000);
+                        }
+
+                        // Start auto-save after initialization
+                        setTimeout(() => {
+                            stateManager.startAutoSave(30000); // Save every 30 seconds
+                        }, 5000);
+
+                    } catch (error) {
+                        console.log('Could not inject bridge script (likely due to CORS), using fallback method');
+                        // Start periodic state requests as fallback
+                        startFallbackStateCapture();
+                    }
+                }, 2000);
+
+            } catch (error) {
+                console.error('Failed to initialize state management:', error);
+            }
+        }
+
+        /**
+         * Try to inject the bridge script into the iframe
+         */
+        async function injectBridgeScript(iframe) {
+            return new Promise((resolve, reject) => {
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+
+                    // Load the bridge script
+                    fetch('./js/calculator-bridge.js')
+                        .then(response => response.text())
+                        .then(scriptContent => {
+                            const script = iframeDoc.createElement('script');
+                            script.textContent = scriptContent;
+                            iframeDoc.head.appendChild(script);
+                            console.log('Bridge script injected successfully');
+                            resolve();
+                        })
+                        .catch(reject);
+
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        /**
+         * Fallback state capture method when direct injection fails
+         */
+        function startFallbackStateCapture() {
+            console.log('Starting fallback state capture method');
+
+            // Use postMessage to try to communicate with the iframe
+            setInterval(() => {
+                if (stateManager && stateManager.iframe) {
+                    stateManager.requestStateFromCalculator();
+                }
+            }, 30000); // Try every 30 seconds
+        }
+
+        /**
+         * Handle app lifecycle events for state persistence
+         */
+        function setupAppLifecycleHandlers() {
+            // Save state when app is about to be hidden
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden && stateManager) {
+                    stateManager.requestStateFromCalculator();
+                }
+            });
+
+            // Save state before page unload
+            window.addEventListener('beforeunload', () => {
+                if (stateManager) {
+                    stateManager.requestStateFromCalculator();
+                }
+            });
+
+            // Handle page hide (mobile Safari)
+            window.addEventListener('pagehide', () => {
+                if (stateManager) {
+                    stateManager.requestStateFromCalculator();
+                }
+            });
+        }
+
+        /**
+         * Add manual controls for state management (for debugging)
+         */
+        function addStateManagementControls() {
+            // Add keyboard shortcuts for development/debugging
+            document.addEventListener('keydown', (event) => {
+                if (event.ctrlKey || event.metaKey) {
+                    switch (event.key.toLowerCase()) {
+                        case 's':
+                            // Ctrl/Cmd + S: Manual save
+                            event.preventDefault();
+                            if (stateManager) {
+                                stateManager.requestStateFromCalculator();
+                                console.log('Manual state save requested');
+                            }
+                            break;
+                        case 'r':
+                            // Ctrl/Cmd + R: Manual restore
+                            if (event.shiftKey) {
+                                event.preventDefault();
+                                if (stateManager) {
+                                    stateManager.loadState().then(state => {
+                                        if (state) {
+                                            stateManager.sendStateToCalculator(state);
+                                            console.log('Manual state restore requested');
+                                        }
+                                    });
+                                }
+                            }
+                            break;
+                        case 'd':
+                            // Ctrl/Cmd + D: Delete saved state
+                            if (event.shiftKey) {
+                                event.preventDefault();
+                                if (stateManager && confirm('Delete all saved calculator state?')) {
+                                    stateManager.clearState();
+                                    console.log('Saved state cleared');
+                                }
+                            }
+                            break;
+                    }
+                }
+            });
+        }
+
+        // Initialize everything when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCalculator();
+            setupAppLifecycleHandlers();
+            addStateManagementControls();
+        });
     </script>
 </body>
 </html>
