@@ -4,7 +4,7 @@ const URLS_TO_CACHE = [
   '/ti89-pwa-wrapper/index.html',
   '/ti89-pwa-wrapper/manifest.webmanifest',
   '/ti89-pwa-wrapper/favicon.ico',
-  '/ti89-pwa-wrapper/icons/icon-512.png'
+  '/ti89-pwa-wrapper/icons/icon.png'
 ];
 
 self.addEventListener('install', (event) => {
