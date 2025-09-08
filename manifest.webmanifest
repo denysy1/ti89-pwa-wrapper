@@ -1,20 +1,50 @@
 {
-  "name": "TI-89",
+  "name": "TI-89 Calculator",
   "short_name": "TI-89",
-  "description": "TI-89 Calculator Simulator PWA Wrapper",
+  "description": "TI-89 Graphing Calculator Simulator - Full-featured scientific calculator in your browser",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#000000",
   "theme_color": "#000000",
+  "categories": ["education", "utilities", "productivity"],
+  "lang": "en",
   "icons": [
     {
-      "src": "icons/icon.png",
+      "src": "./icons/icon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-180.png",
+      "sizes": "180x180",
       "type": "image/png"
     },
     {
-      "src": "favicon.ico",
-      "sizes": "48x48",
-      "type": "image/x-icon"
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "TI-89 Calculator Interface"
     }
   ]
 }
