@@ -129,6 +129,57 @@
         .retry-button:hover {
             background: #005999;
         }
+
+        /* iOS Debug Panel Styles */
+        .debug-panel {
+            position: fixed;
+            bottom: -200px;
+            left: 10px;
+            right: 10px;
+            height: 180px;
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+            font-size: 12px;
+            z-index: 10002;
+            transition: bottom 0.3s ease;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .debug-panel.show {
+            bottom: env(safe-area-inset-bottom, 10px);
+        }
+
+        .debug-panel h4 {
+            margin: 0 0 10px 0;
+            color: #4CAF50;
+            font-size: 14px;
+        }
+
+        .debug-button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            margin: 4px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .debug-button:active {
+            background: #1976D2;
+        }
+
+        .debug-info {
+            font-size: 10px;
+            color: #ccc;
+            margin-top: 8px;
+            max-height: 60px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -159,9 +210,23 @@
         allowfullscreen>
     </iframe>
 
+    <!-- iOS Debug Panel (Hidden by default) -->
+    <div id="debugPanel" class="debug-panel">
+        <h4>TI-89 State Management Debug</h4>
+        <div>
+            <button class="debug-button" onclick="debugSave()">💾 Save Now</button>
+            <button class="debug-button" onclick="debugRestore()">↩️ Restore</button>
+            <button class="debug-button" onclick="debugClear()">🗑️ Clear</button>
+            <button class="debug-button" onclick="debugInfo()">📊 Info</button>
+            <button class="debug-button" onclick="hideDebugPanel()">❌ Hide</button>
+        </div>
+        <div id="debugInfo" class="debug-info"></div>
+    </div>
+
     <!-- State Management Scripts -->
     <script src="./js/storage-fallback.js"></script>
     <script src="./js/state-manager.js"></script>
+    <script src="./js/ios-state-manager.js"></script>
 
     <script>
         // Register service worker
@@ -279,45 +344,90 @@
         }, false);
 
         /**
+         * Detect if running on iOS
+         */
+        function isIOS() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        }
+
+        /**
+         * Detect if running as standalone PWA
+         */
+        function isStandalonePWA() {
+            return window.navigator.standalone === true ||
+                   window.matchMedia('(display-mode: standalone)').matches;
+        }
+
+        /**
          * Initialize state management for the calculator
          */
         async function initializeStateManagement(iframe) {
             try {
-                // Create state manager if not exists
+                console.log('Platform detection:', {
+                    isIOS: isIOS(),
+                    isStandalone: isStandalonePWA(),
+                    userAgent: navigator.userAgent
+                });
+
+                // Create appropriate state manager based on platform
                 if (!stateManager) {
-                    stateManager = new TI89StateManager();
-                }
+                    if (isIOS()) {
+                        console.log('Initializing iOS-specific state manager');
+                        stateManager = new iOSStateManager();
 
-                // Set the iframe reference
-                stateManager.setIframe(iframe);
+                        // Set up iOS-specific lifecycle handlers
+                        stateManager.setupiOSLifecycleHandlers();
 
-                // Wait a moment for iframe to fully load
-                setTimeout(async () => {
-                    try {
-                        // Try to inject the bridge script into the iframe
-                        await injectBridgeScript(iframe);
+                        // Set iframe and try to restore immediately
+                        stateManager.setIframe(iframe);
 
-                        // Load any saved state
-                        const savedState = await stateManager.loadState();
-                        if (savedState) {
-                            console.log('Found saved calculator state, attempting to restore...');
-                            // Wait a bit more for the calculator to initialize
-                            setTimeout(() => {
-                                stateManager.sendStateToCalculator(savedState);
-                            }, 3000);
-                        }
-
-                        // Start auto-save after initialization
+                        // Try to restore state after a short delay
                         setTimeout(() => {
-                            stateManager.startAutoSave(30000); // Save every 30 seconds
-                        }, 5000);
+                            stateManager.restoreState();
+                        }, 2000);
 
-                    } catch (error) {
-                        console.log('Could not inject bridge script (likely due to CORS), using fallback method');
-                        // Start periodic state requests as fallback
-                        startFallbackStateCapture();
+                        // Start iOS auto-save (more frequent)
+                        setTimeout(() => {
+                            stateManager.startAutoSave(10000); // Every 10 seconds on iOS
+                        }, 3000);
+
+                    } else {
+                        console.log('Initializing standard state manager');
+                        stateManager = new TI89StateManager();
+
+                        // Set the iframe reference
+                        stateManager.setIframe(iframe);
+
+                        // Wait a moment for iframe to fully load
+                        setTimeout(async () => {
+                            try {
+                                // Try to inject the bridge script into the iframe
+                                await injectBridgeScript(iframe);
+
+                                // Load any saved state
+                                const savedState = await stateManager.loadState();
+                                if (savedState) {
+                                    console.log('Found saved calculator state, attempting to restore...');
+                                    // Wait a bit more for the calculator to initialize
+                                    setTimeout(() => {
+                                        stateManager.sendStateToCalculator(savedState);
+                                    }, 3000);
+                                }
+
+                                // Start auto-save after initialization
+                                setTimeout(() => {
+                                    stateManager.startAutoSave(30000); // Save every 30 seconds
+                                }, 5000);
+
+                            } catch (error) {
+                                console.log('Could not inject bridge script (likely due to CORS), using fallback method');
+                                // Start periodic state requests as fallback
+                                startFallbackStateCapture();
+                            }
+                        }, 2000);
                     }
-                }, 2000);
+                }
 
             } catch (error) {
                 console.error('Failed to initialize state management:', error);
@@ -435,11 +545,116 @@
             });
         }
 
+        // iOS Debug Functions
+        function debugSave() {
+            if (stateManager) {
+                if (stateManager.forceSave) {
+                    const result = stateManager.forceSave();
+                    updateDebugInfo(JSON.stringify(result, null, 2));
+                } else {
+                    stateManager.requestStateFromCalculator();
+                    updateDebugInfo('Save requested (standard mode)');
+                }
+            } else {
+                updateDebugInfo('No state manager available');
+            }
+        }
+
+        function debugRestore() {
+            if (stateManager) {
+                if (stateManager.forceRestore) {
+                    const result = stateManager.forceRestore();
+                    updateDebugInfo(`Restore result: ${result}`);
+                } else {
+                    stateManager.loadState().then(state => {
+                        if (state) {
+                            stateManager.sendStateToCalculator(state);
+                            updateDebugInfo('Restore requested (standard mode)');
+                        } else {
+                            updateDebugInfo('No saved state found');
+                        }
+                    });
+                }
+            } else {
+                updateDebugInfo('No state manager available');
+            }
+        }
+
+        function debugClear() {
+            if (stateManager && confirm('Clear all saved state?')) {
+                stateManager.clearState();
+                updateDebugInfo('State cleared');
+            }
+        }
+
+        function debugInfo() {
+            if (stateManager) {
+                if (stateManager.getDiagnostics) {
+                    const diagnostics = stateManager.getDiagnostics();
+                    updateDebugInfo(JSON.stringify(diagnostics, null, 1));
+                } else {
+                    updateDebugInfo('Standard state manager active');
+                }
+            } else {
+                updateDebugInfo('No state manager available');
+            }
+        }
+
+        function updateDebugInfo(text) {
+            const debugInfoElement = document.getElementById('debugInfo');
+            debugInfoElement.textContent = text;
+        }
+
+        function showDebugPanel() {
+            document.getElementById('debugPanel').classList.add('show');
+        }
+
+        function hideDebugPanel() {
+            document.getElementById('debugPanel').classList.remove('show');
+        }
+
+        // Touch gesture to show debug panel (triple tap in bottom corner)
+        let tapCount = 0;
+        let tapTimer = null;
+        document.addEventListener('touchstart', (event) => {
+            if (event.touches.length === 1) {
+                const touch = event.touches[0];
+                const windowHeight = window.innerHeight;
+                const windowWidth = window.innerWidth;
+
+                // Check if touch is in bottom-right corner (100px square)
+                if (touch.clientX > windowWidth - 100 &&
+                    touch.clientY > windowHeight - 100) {
+
+                    tapCount++;
+
+                    if (tapTimer) {
+                        clearTimeout(tapTimer);
+                    }
+
+                    tapTimer = setTimeout(() => {
+                        if (tapCount >= 3) {
+                            showDebugPanel();
+                        }
+                        tapCount = 0;
+                    }, 500);
+                }
+            }
+        });
+
         // Initialize everything when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
             loadCalculator();
             setupAppLifecycleHandlers();
             addStateManagementControls();
+
+            // Show debug panel automatically on iOS for testing
+            if (isIOS()) {
+                setTimeout(() => {
+                    showDebugPanel();
+                    updateDebugInfo('iOS detected. Debug panel active.\nTriple-tap bottom-right corner to show again.');
+                }, 5000);
+            }
         });
     </script>
 </body>
